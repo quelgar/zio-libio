@@ -26,32 +26,63 @@ object FileStats {
 
 }
 
-final case class Path(absolute: Boolean, components: Chunk[String]) {
+final case class Path(absolute: Boolean, components: Chunk[Path.Component]) {
 
   inline def isRoot: Boolean = absolute && components.isEmpty
 
   def parent: Option[Path] =
-    if (isRoot) None else Some(copy(components = components.dropRight(1)))
+    NonEmptyChunk
+      .fromChunk(components)
+      .map(cs => copy(components = cs.dropRight(1)))
 
   def /(child: String): Path = copy(components = components :+ child)
 
   def /(child: Path): Path =
     if (absolute) child else copy(components = components ++ child.components)
 
-  def asDirectory: IO[IOFailure, Directory] = platform.Directory.open(this)
+  def asDirectory: ZIO[IOCtx, IOFailure, Directory] =
+    platform.Directory.open(this)
 
-  def loadStats: IO[IOFailure, FileStats] = platform.FileStats.load(this)
+  def loadStats: ZIO[IOCtx, IOFailure, FileStats] =
+    platform.FileStats.load(this)
 
-  def exists: IO[IOFailure, Boolean] = platform.File.exists(this)
+  def exists: ZIO[IOCtx, IOFailure, Boolean] = platform.File.exists(this)
+
+  def asAbsolute: ZIO[IOCtx, IOFailure, Path] =
+    if (absolute) ZIO.succeed(this) else platform.File.asAbsolute(this)
+
+  def stringComponents: Chunk[String] = components.map(_.asString)
 
 }
 
 object Path {
 
-  def relative(first: String, rest: String*): Path =
+  enum Component {
+    case Up
+    case Down(name: String)
+
+    def asString: String = this match {
+      case Component.Up => ".."
+      case Down(name)   => name
+    }
+  }
+
+  object Component {
+    def fromString(s: String): Component = s match {
+      case ".." => Up
+      case name => Down(name)
+    }
+  }
+
+  def currentDirectory: Path = Path(absolute = false, Chunk.empty)
+
+  def currentDirectoryAbsolute: ZIO[IOCtx, IOFailure, Path] =
+    currentDirectory.asAbsolute
+
+  def relative(first: Path.Component, rest: Path.Component*): Path =
     Path(absolute = false, first +: Chunk.fromIterable(rest))
 
-  def absolute(first: String, rest: String*): Path =
+  def absolute(first: Path.Component, rest: Path.Component*): Path =
     Path(absolute = true, first +: Chunk.fromIterable(rest))
 
   val root: Path = Path(absolute = true, components = Chunk.empty)
@@ -61,6 +92,11 @@ object Path {
   }
 
 }
+
+val Up: Path.Component = Path.Component.Up
+
+given Conversion[String, Path.Component] with
+  def apply(s: String) = Path.Component.Down(s)
 
 trait Directory {
 

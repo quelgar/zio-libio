@@ -8,7 +8,7 @@ logLevel := Level.Info
 // import to add Scala Native options
 import scala.scalanative.build._
 
-val zioVer = "2.0.14"
+val zioVer = "2.0.15"
 
 lazy val root = crossProject(JVMPlatform, NativePlatform)
   .crossType(CrossType.Full)

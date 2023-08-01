@@ -6,6 +6,9 @@ import zio.stream.*
 import java.nio
 import java.nio.{channels as nioc}
 import java.io.IOException
+import scala.jdk.CollectionConverters.*
+import file.*
+import java.io.IOError
 
 object JavaBuffers {
 
@@ -30,7 +33,12 @@ object JavaErrors {
 
   def refineToIOFailure: PartialFunction[Throwable, IOFailure] = {
     case e: IOException => IOFailure.GeneralFailure(Some(e), e.getMessage())
+    case e: IOError     => IOFailure.GeneralFailure(Some(e), e.getMessage())
   }
+
+  val mapIOException: IOException => IOFailure = e =>
+    IOFailure.GeneralFailure(Some(e), e.getMessage())
+
 }
 
 object JavaChannels {
@@ -41,7 +49,7 @@ object JavaChannels {
   ): Stream[IOFailure, Byte] = {
     ZStream.repeatZIOChunkOption {
       ZIO
-        .attemptUnsafe { implicit unsafe =>
+        .attemptBlockingIO {
           if (channel.read(buffer) < 0) {
             None
           } else {
@@ -51,7 +59,7 @@ object JavaChannels {
             Some(chunk)
           }
         }
-        .refineOrDie(JavaErrors.refineToIOFailure)
+        .mapError(JavaErrors.mapIOException)
         .some
     }
   }
@@ -64,7 +72,7 @@ object JavaChannels {
       .foldLeftChunksZIO((0L, Chunk.empty[Byte])) {
         (state: (Long, Chunk[Byte]), chunk: Chunk[Byte]) =>
           val (count, remaining) = state
-          ZIO.succeedUnsafe { implicit unsafe =>
+          ZIO.succeed {
             val newRemaining =
               JavaBuffers.unsafeCopyFromChunk(remaining ++ chunk, buffer)
             buffer.flip()
@@ -79,10 +87,18 @@ object JavaChannels {
 
 object JavaPath {
 
-  def fromPath(path: file.Path): nio.file.Path =
-    path.components.nonEmptyOrElse(nio.file.Path.of("/")) { components =>
-      nio.file.Path.of(components.head, components.tail*)
+  def fromPath(path: file.Path): nio.file.Path = {
+    val head = if (path.absolute) "/" else ""
+    path.stringComponents.nonEmptyOrElse(nio.file.Path.of(head)) { components =>
+      nio.file.Path.of(head, components*)
     }
+  }
+
+  def toPath(path: nio.file.Path): file.Path = {
+    val components =
+      Chunk.fromIterator(path.iterator().asScala.map(_.toString()))
+    file.Path(path.isAbsolute(), components.map(Path.Component.fromString))
+  }
 }
 
 final case class JavaInstant(val javaInstant: java.time.Instant)
@@ -102,4 +118,43 @@ object JavaInstant {
   def fromFileTime(fileTime: nio.file.attribute.FileTime): Instant =
     fromInstant(fileTime.toInstant())
 
+}
+
+object JavaAttribs {
+
+  def fromPermissions(
+      permissions: file.PosixPermissions
+  ): nio.file.attribute.FileAttribute[java.util.Set[
+    nio.file.attribute.PosixFilePermission
+  ]] = {
+    var javaPerms = Set.empty[nio.file.attribute.PosixFilePermission]
+    if (permissions.user.isRead) {
+      javaPerms += nio.file.attribute.PosixFilePermission.OWNER_READ
+    }
+    if (permissions.user.isWrite) {
+      javaPerms += nio.file.attribute.PosixFilePermission.OWNER_WRITE
+    }
+    if (permissions.user.isExecute) {
+      javaPerms += nio.file.attribute.PosixFilePermission.OWNER_EXECUTE
+    }
+    if (permissions.group.isRead) {
+      javaPerms += nio.file.attribute.PosixFilePermission.GROUP_READ
+    }
+    if (permissions.group.isWrite) {
+      javaPerms += nio.file.attribute.PosixFilePermission.GROUP_WRITE
+    }
+    if (permissions.group.isExecute) {
+      javaPerms += nio.file.attribute.PosixFilePermission.GROUP_EXECUTE
+    }
+    if (permissions.other.isRead) {
+      javaPerms += nio.file.attribute.PosixFilePermission.OTHERS_READ
+    }
+    if (permissions.other.isWrite) {
+      javaPerms += nio.file.attribute.PosixFilePermission.OTHERS_WRITE
+    }
+    if (permissions.other.isExecute) {
+      javaPerms += nio.file.attribute.PosixFilePermission.OTHERS_EXECUTE
+    }
+    nio.file.attribute.PosixFilePermissions.asFileAttribute(javaPerms.asJava)
+  }
 }

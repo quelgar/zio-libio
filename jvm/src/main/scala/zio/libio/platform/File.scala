@@ -8,6 +8,7 @@ import java.nio.{channels as nioc}
 import file.Path
 import file.PosixPermissions
 import scala.jdk.CollectionConverters.*
+import java.io.IOException
 
 final class File(
     val path: Path,
@@ -83,9 +84,9 @@ final class File(
 
 }
 
-object File {
+object FileSpiImplementation extends file.FileSpi {
 
-  def open(
+  private def open(
       path: file.Path,
       options: Set[nio.file.OpenOption]
   ): ZIO[Scope & IOCtx, IOFailure, File] = {
@@ -103,15 +104,15 @@ object File {
     }
   }
 
-  def read(path: file.Path): ZIO[Scope & IOCtx, IOFailure, File] = {
+  override def read(path: file.Path): ZIO[Scope & IOCtx, IOFailure, File] = {
     open(path, Set(nio.file.StandardOpenOption.READ))
   }
 
-  def write(path: file.Path): ZIO[Scope & IOCtx, IOFailure, File] = {
+  override def write(path: file.Path): ZIO[Scope & IOCtx, IOFailure, File] = {
     open(path, Set(nio.file.StandardOpenOption.WRITE))
   }
 
-  def createWrite(
+  override def createWrite(
       path: file.Path,
       permissions: PosixPermissions
   ): ZIO[Scope & IOCtx, IOFailure, File] = {
@@ -125,15 +126,16 @@ object File {
     )
   }
 
-  def readWrite(path: file.Path): ZIO[Scope & IOCtx, IOFailure, File] = open(
-    path,
-    Set(
-      nio.file.StandardOpenOption.READ,
-      nio.file.StandardOpenOption.WRITE
+  override def readWrite(path: file.Path): ZIO[Scope & IOCtx, IOFailure, File] =
+    open(
+      path,
+      Set(
+        nio.file.StandardOpenOption.READ,
+        nio.file.StandardOpenOption.WRITE
+      )
     )
-  )
 
-  def createReadWrite(
+  override def createReadWrite(
       path: file.Path,
       permissions: PosixPermissions
   ): ZIO[Scope & IOCtx, IOFailure, File] = open(
@@ -146,7 +148,7 @@ object File {
     )
   )
 
-  def createTemp(
+  override def createTempFile(
       permissions: PosixPermissions = PosixPermissions.userReadWrite,
       directory: Option[Path] = None,
       prefix: String = "",
@@ -175,12 +177,12 @@ object File {
       }
   }
 
-  def exists(path: Path): ZIO[IOCtx, IOFailure, Boolean] =
+  override def exists(path: Path): ZIO[IOCtx, IOFailure, Boolean] =
     ZIO
       .attempt(nio.file.Files.exists(JavaPath.fromPath(path)))
       .refineOrDie(JavaErrors.refineToIOFailure)
 
-  def asAbsolute(path: Path): ZIO[IOCtx, IOFailure, Path] =
+  override def asAbsolute(path: Path): ZIO[IOCtx, IOFailure, Path] =
     ZIO
       .attempt {
         val javaPath = JavaPath.fromPath(path)

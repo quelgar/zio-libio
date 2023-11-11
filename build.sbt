@@ -1,4 +1,4 @@
-ThisBuild / scalaVersion := "3.3.0"
+ThisBuild / scalaVersion := "3.3.1"
 
 enablePlugins(ScalaNativePlugin)
 
@@ -8,7 +8,7 @@ logLevel := Level.Info
 // import to add Scala Native options
 import scala.scalanative.build._
 
-val zioVer = "2.0.15"
+val zioVer = "2.0.19"
 
 lazy val root = crossProject(JVMPlatform, NativePlatform)
   .crossType(CrossType.Full)
@@ -17,8 +17,8 @@ lazy val root = crossProject(JVMPlatform, NativePlatform)
     name := "zio-libio",
     libraryDependencies += "dev.zio" %%% "zio-streams" % zioVer,
     libraryDependencies += "dev.zio" %%% "zio-test" % zioVer % Test,
-    libraryDependencies += "dev.zio" %%% "zio-test-sbt" % zioVer % Test,
-    libraryDependencies += "dev.zio" %%% "zio-test-magnolia" % zioVer % Test
+    libraryDependencies += "dev.zio" %%% "zio-test-sbt" % zioVer % Test
+    // libraryDependencies += "dev.zio" %%% "zio-test-magnolia" % zioVer % Test
   )
   .nativeSettings(
     nativeConfig ~= { c =>

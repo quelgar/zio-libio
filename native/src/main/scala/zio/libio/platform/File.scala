@@ -8,16 +8,22 @@ import file.PosixPermissions
 
 final class File extends file.ReadWriteFile {
 
-  override def read(offset: Long = 0L): Stream[IOFailure, Byte] = ???
+  override def read(offset: Long = 0L): ZStream[IOCtx, IOFailure, Byte] = ???
 
-  override def append: Sink[IOFailure, Byte, Byte, Long] = ???
+  override def write(
+      offset: Long = 0L
+  ): ZSink[IOCtx, IOFailure, Byte, Byte, Long] = ???
 
-  override def write(offset: Long = 0L): Sink[IOFailure, Byte, Byte, Long] = ???
+  override def append: ZSink[IOCtx, IOFailure, Byte, Byte, Long] = ???
+
 }
 
 object File {
 
-  def read(path: file.Path): ZIO[Scope, IOFailure, File] = ???
+  def read(path: file.Path): ZIO[IOCtx & Scope, IOFailure, File] = {
+
+    ???
+  }
 
   def write(path: file.Path): ZIO[Scope, IOFailure, File] = ???
 
@@ -41,6 +47,8 @@ object File {
   ): ZIO[Scope, IOFailure, File] = ???
 
   def exists(path: Path): IO[IOFailure, Boolean] = ???
+
+  def asAbsolute(path: Path): ZIO[IOCtx, IOFailure, Path] = ???
 
 }
 

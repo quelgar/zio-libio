@@ -45,6 +45,25 @@ final case class IOCtx(jvm: IOCtx.Jvm, native: IOCtx.Native) {
 
   def scoped[R, E, A](workflow: ZIO[R & IOCtx & Scope, E, A]): ZIO[R, E, A] =
     ZIO.scoped(use(workflow))
+
+  def layer: ULayer[IOCtx] = ZLayer.scoped {
+    val getExecutor = if internal.Platform.isJVM then {
+      jvm.executor match {
+        case ExecutorType.Blocking =>
+          ZIO.blockingExecutor
+        case ExecutorType.Unchanged =>
+          ZIO.executor
+        case IOCtx.ExecutorType.Custom(executor) =>
+          ZIO.succeed(executor)
+      }
+    } else if internal.Platform.isNative then {
+      ???
+    } else {
+      ZIO.dieMessage("Unsupported platform")
+    }
+    getExecutor.flatMap(e => ZIO.onExecutorScoped(e)).as(this)
+  }
+
 }
 
 object IOCtx {

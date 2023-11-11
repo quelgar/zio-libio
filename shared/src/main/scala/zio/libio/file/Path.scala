@@ -46,12 +46,19 @@ final case class Path(absolute: Boolean, components: Chunk[Path.Component]) {
   def loadStats: ZIO[IOCtx, IOFailure, FileStats] =
     platform.FileStats.load(this)
 
-  def exists: ZIO[IOCtx, IOFailure, Boolean] = platform.File.exists(this)
+  def exists: ZIO[IOCtx, IOFailure, Boolean] =
+    platform.FileSpiImplementation.exists(this)
 
   def asAbsolute: ZIO[IOCtx, IOFailure, Path] =
-    if (absolute) ZIO.succeed(this) else platform.File.asAbsolute(this)
+    if (absolute) ZIO.succeed(this)
+    else platform.FileSpiImplementation.asAbsolute(this)
 
   def stringComponents: Chunk[String] = components.map(_.asString)
+
+  def asString: String = {
+    val initial = if absolute then "/" else ""
+    stringComponents.mkString(initial, java.io.File.separator, "")
+  }
 
 }
 

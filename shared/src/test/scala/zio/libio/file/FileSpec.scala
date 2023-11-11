@@ -16,17 +16,7 @@ object FileSpec extends ZIOSpecDefault {
   private val testDataStream = ZStream.fromChunk(testData)
 
   private val path =
-    Path.relative(Up, "shared", "src", "test", "resources", "test.txt")
-
-  extension (spec: Spec[TestEnvironment & Scope & IOCtx, Any])
-    def usingIOCtx(ioCtx: IOCtx): Spec[TestEnvironment & Scope, Any] =
-      spec
-        .transform[TestEnvironment & Scope & IOCtx, Any] {
-          case Spec.TestCase(test, annotations) =>
-            Spec.TestCase(ioCtx.use(test), annotations)
-          case other => other
-        }
-        .provideSomeEnvironment[TestEnvironment & Scope](_.add(ioCtx))
+    Path.relative("shared", "src", "test", "resources", "test.txt")
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("File")(
     test("deletes a temporary file when the scope ends") {

@@ -40,6 +40,11 @@ object JavaInteropSpec extends ZIOSpecDefault {
           val javaPath = JavaPath.fromPath(path)
           assertTrue(javaPath == java.nio.file.Paths.get("foo", "bar"))
         },
+        test("paths relative to the parent can be converted from libio paths") {
+          val path = file.Path.relative(file.Up, "foo", "bar")
+          val javaPath = JavaPath.fromPath(path)
+          assertTrue(javaPath == java.nio.file.Paths.get("..", "foo", "bar"))
+        },
         test("absolute paths can be converted from libio paths") {
           val path = file.Path.absolute("foo", "bar")
           val javaPath = JavaPath.fromPath(path)

@@ -4,11 +4,46 @@ package platform
 
 import stream.*
 
-final class File extends file.ReadWriteFile {
+import scala.scalanative.*
+import scalauv.LibUv
+import scalauv.UvUtils
+import scala.scalanative.unsafe.*
+import scalauv.IOVector
+
+final class File(
+    fileHandle: LibUv.FileHandle,
+    ioVector: IOVector
+) extends file.ReadWriteFile {
 
   // def close: URIO[IOCtx, Unit] = ???
 
-  override def read: ZStream[IOCtx, IOFailure, Byte] = {}
+  override def read: ZStream[IOCtx, IOFailure, Byte] = {
+    ZStream.repeatZIOChunkOption {
+      uvZIO
+        .attemptFsRead {
+          LibUv.uv_fs_read(
+            uvLoop,
+            _,
+            fileHandle,
+            ioVector.nativeBuffers,
+            ioVector.nativeNumBuffers,
+            -1L,
+            null
+          )
+        }
+        .mapError {
+          case IOFailure.EndOfFile => None
+          case other               => Some(other)
+        }
+        .map { bytesRead =>
+          val builder = Chunk.newBuilder[Byte]
+          ioVector.foreachBufferMax(bytesRead) {
+            builder.appendNative(_, _)
+          }
+          builder.result()
+        }
+    }
+  }
 
   override def readFrom(offset: Long): ZStream[IOCtx, IOFailure, Byte] = ???
 

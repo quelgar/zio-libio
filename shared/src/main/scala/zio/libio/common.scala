@@ -5,7 +5,11 @@ enum IOFailure(cause: Option[Throwable] = None):
   case FileNotFound(cause: Option[Throwable] = None) extends IOFailure(cause)
   case NotAFile(cause: Option[Throwable] = None) extends IOFailure(cause)
   case NotADirectory(cause: Option[Throwable] = None) extends IOFailure(cause)
-  case ReadFailed(cause: Option[Throwable] = None) extends IOFailure(cause)
+  case ReadFailed(
+      cause: Option[Throwable] = None,
+      message: Option[String] = None
+  ) extends IOFailure(cause)
+  case EndOfFile extends IOFailure(None)
   case GeneralFailure(cause: Option[Throwable] = None, message: String)
       extends IOFailure(cause)
 

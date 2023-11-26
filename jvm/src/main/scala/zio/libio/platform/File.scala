@@ -22,7 +22,7 @@ final class File(
     ZStream
       .repeatZIOChunkOption {
         ZIO.attempt {
-          if (fileChannel.read(nioBuf) < 0) {
+          if fileChannel.read(nioBuf) < 0 then {
             None
           } else {
             nioBuf.flip()
@@ -38,7 +38,7 @@ final class File(
     ZStream.repeatZIOChunkOption {
       ZIO.attemptBlockingCancelable {
         val bytesRead = fileChannel.read(nioBuf, offset)
-        if (bytesRead == -1) None
+        if bytesRead == -1 then None
         else {
           nioBuf.flip()
           val bytes = Array.ofDim[Byte](nioBuf.remaining())
@@ -56,7 +56,7 @@ final class File(
         nioBuf.put(chunk.toArray)
         nioBuf.flip()
         var c = count
-        while (nioBuf.hasRemaining()) {
+        while nioBuf.hasRemaining() do {
           c += fileChannel.write(nioBuf).toLong
         }
         nioBuf.clear()
@@ -73,7 +73,7 @@ final class File(
         nioBuf.put(chunk.toArray)
         nioBuf.flip()
         var c = 0L
-        while (nioBuf.hasRemaining()) {
+        while nioBuf.hasRemaining() do {
           c += fileChannel.write(nioBuf, offset + c).toLong
         }
         nioBuf.clear()
@@ -199,7 +199,7 @@ object FileStats {
     ZIO.succeed {
       val javaPath = JavaPath.fromPath(path)
       val views = javaPath.getFileSystem().supportedFileAttributeViews()
-      val unixMap = if (views.contains("unix")) {
+      val unixMap = if views.contains("unix") then {
         nio.file.Files.readAttributes(javaPath, "unix:*").asScala
       } else {
         Map.empty[String, Object]
@@ -209,14 +209,11 @@ object FileStats {
         classOf[nio.file.attribute.BasicFileAttributes]
       )
       val fileType =
-        if (basicAttrs.isDirectory())
-          file.FileStats.Type.Directory
-        else if (basicAttrs.isRegularFile())
-          file.FileStats.Type.RegularFile
-        else if (basicAttrs.isSymbolicLink())
+        if basicAttrs.isDirectory() then file.FileStats.Type.Directory
+        else if basicAttrs.isRegularFile() then file.FileStats.Type.RegularFile
+        else if basicAttrs.isSymbolicLink() then
           file.FileStats.Type.SymbolicLink
-        else
-          file.FileStats.Type.Other
+        else file.FileStats.Type.Other
 
       val javaPerms = unixMap
         .get("permissions")
@@ -224,27 +221,27 @@ object FileStats {
         .getOrElse(Set.empty[Object])
       val permissions = PosixPermissions(
         user = file.PosixPermission(
-          if (javaPerms(JavaPerm.OWNER_READ)) file.FileMode.Read
+          if javaPerms(JavaPerm.OWNER_READ) then file.FileMode.Read
           else file.FileMode.None,
-          if (javaPerms(JavaPerm.OWNER_WRITE)) file.FileMode.Write
+          if javaPerms(JavaPerm.OWNER_WRITE) then file.FileMode.Write
           else file.FileMode.None,
-          if (javaPerms(JavaPerm.OWNER_EXECUTE)) file.FileMode.Execute
+          if javaPerms(JavaPerm.OWNER_EXECUTE) then file.FileMode.Execute
           else file.FileMode.None
         ),
         group = file.PosixPermission(
-          if (javaPerms(JavaPerm.GROUP_READ)) file.FileMode.Read
+          if javaPerms(JavaPerm.GROUP_READ) then file.FileMode.Read
           else file.FileMode.None,
-          if (javaPerms(JavaPerm.GROUP_WRITE)) file.FileMode.Write
+          if javaPerms(JavaPerm.GROUP_WRITE) then file.FileMode.Write
           else file.FileMode.None,
-          if (javaPerms(JavaPerm.GROUP_EXECUTE)) file.FileMode.Execute
+          if javaPerms(JavaPerm.GROUP_EXECUTE) then file.FileMode.Execute
           else file.FileMode.None
         ),
         other = file.PosixPermission(
-          if (javaPerms(JavaPerm.OTHERS_READ)) file.FileMode.Read
+          if javaPerms(JavaPerm.OTHERS_READ) then file.FileMode.Read
           else file.FileMode.None,
-          if (javaPerms(JavaPerm.OTHERS_WRITE)) file.FileMode.Write
+          if javaPerms(JavaPerm.OTHERS_WRITE) then file.FileMode.Write
           else file.FileMode.None,
-          if (javaPerms(JavaPerm.OTHERS_EXECUTE)) file.FileMode.Execute
+          if javaPerms(JavaPerm.OTHERS_EXECUTE) then file.FileMode.Execute
           else file.FileMode.None
         )
       )

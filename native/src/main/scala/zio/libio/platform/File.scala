@@ -3,58 +3,60 @@ package libio
 package platform
 
 import stream.*
-import file.Path
-import file.PosixPermissions
 
 final class File extends file.ReadWriteFile {
 
-  override def read(offset: Long = 0L): ZStream[IOCtx, IOFailure, Byte] = ???
+  // def close: URIO[IOCtx, Unit] = ???
 
-  override def write(
-      offset: Long = 0L
+  override def read: ZStream[IOCtx, IOFailure, Byte] = {}
+
+  override def readFrom(offset: Long): ZStream[IOCtx, IOFailure, Byte] = ???
+
+  override def writeAt(
+      offset: Long
   ): ZSink[IOCtx, IOFailure, Byte, Byte, Long] = ???
 
-  override def append: ZSink[IOCtx, IOFailure, Byte, Byte, Long] = ???
+  override def write: ZSink[IOCtx, IOFailure, Byte, Byte, Long] = ???
 
 }
 
-object File {
+object FileSpiImplementation extends file.FileSpi {
 
-  def read(path: file.Path): ZIO[IOCtx & Scope, IOFailure, File] = {
+  override def read(path: file.Path): ZIO[Scope & IOCtx, IOFailure, File] = ???
 
-    ???
-  }
+  override def write(path: file.Path): ZIO[Scope & IOCtx, IOFailure, File] = ???
 
-  def write(path: file.Path): ZIO[Scope, IOFailure, File] = ???
-
-  def createWrite(
+  override def createWrite(
       path: file.Path,
-      permissions: PosixPermissions
-  ): ZIO[Scope, IOFailure, File] = ???
+      permissions: file.PosixPermissions
+  ): ZIO[Scope & IOCtx, IOFailure, File] = ???
 
-  def createTemp(
-      permissions: PosixPermissions = PosixPermissions.userReadWrite,
-      directory: Option[Path] = None,
+  override def readWrite(
+      path: file.Path
+  ): ZIO[Scope & IOCtx, IOFailure, File] = ???
+
+  override def createReadWrite(
+      path: file.Path,
+      permissions: file.PosixPermissions
+  ): ZIO[Scope & IOCtx, IOFailure, File] = ???
+
+  override def createTempFile(
+      permissions: file.PosixPermissions = file.PosixPermissions.userReadWrite,
+      directory: Option[file.Path] = None,
       prefix: String = "",
       suffix: String = ""
-  ): ZIO[Scope, IOFailure, Path] = ???
+  ): ZIO[Scope & IOCtx, IOFailure, file.Path] = ???
 
-  def readWrite(path: file.Path): ZIO[Scope, IOFailure, File] = ???
+  override def exists(path: file.Path): ZIO[IOCtx, IOFailure, Boolean] = ???
 
-  def createReadWrite(
-      path: file.Path,
-      permissions: PosixPermissions
-  ): ZIO[Scope, IOFailure, File] = ???
-
-  def exists(path: Path): IO[IOFailure, Boolean] = ???
-
-  def asAbsolute(path: Path): ZIO[IOCtx, IOFailure, Path] = ???
+  override def asAbsolute(path: file.Path): ZIO[IOCtx, IOFailure, file.Path] =
+    ???
 
 }
 
 object FileStats {
 
-  def load(path: Path): IO[IOFailure, file.FileStats] = {
+  def load(path: file.Path): IO[IOFailure, file.FileStats] = {
     ???
   }
 }

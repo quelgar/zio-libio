@@ -50,7 +50,7 @@ object JavaChannels {
     ZStream.repeatZIOChunkOption {
       ZIO
         .attemptBlockingIO {
-          if (channel.read(buffer) < 0) {
+          if channel.read(buffer) < 0 then {
             None
           } else {
             buffer.flip()
@@ -88,7 +88,7 @@ object JavaChannels {
 object JavaPath {
 
   def fromPath(path: file.Path): nio.file.Path = {
-    val head = if (path.absolute) "/" else ""
+    val head = if path.absolute then "/" else ""
     path.stringComponents.nonEmptyOrElse(nio.file.Path.of(head)) { components =>
       nio.file.Path.of(head, components*)
     }
@@ -128,31 +128,31 @@ object JavaAttribs {
     nio.file.attribute.PosixFilePermission
   ]] = {
     var javaPerms = Set.empty[nio.file.attribute.PosixFilePermission]
-    if (permissions.user.isRead) {
+    if permissions.user.isRead then {
       javaPerms += nio.file.attribute.PosixFilePermission.OWNER_READ
     }
-    if (permissions.user.isWrite) {
+    if permissions.user.isWrite then {
       javaPerms += nio.file.attribute.PosixFilePermission.OWNER_WRITE
     }
-    if (permissions.user.isExecute) {
+    if permissions.user.isExecute then {
       javaPerms += nio.file.attribute.PosixFilePermission.OWNER_EXECUTE
     }
-    if (permissions.group.isRead) {
+    if permissions.group.isRead then {
       javaPerms += nio.file.attribute.PosixFilePermission.GROUP_READ
     }
-    if (permissions.group.isWrite) {
+    if permissions.group.isWrite then {
       javaPerms += nio.file.attribute.PosixFilePermission.GROUP_WRITE
     }
-    if (permissions.group.isExecute) {
+    if permissions.group.isExecute then {
       javaPerms += nio.file.attribute.PosixFilePermission.GROUP_EXECUTE
     }
-    if (permissions.other.isRead) {
+    if permissions.other.isRead then {
       javaPerms += nio.file.attribute.PosixFilePermission.OTHERS_READ
     }
-    if (permissions.other.isWrite) {
+    if permissions.other.isWrite then {
       javaPerms += nio.file.attribute.PosixFilePermission.OTHERS_WRITE
     }
-    if (permissions.other.isExecute) {
+    if permissions.other.isExecute then {
       javaPerms += nio.file.attribute.PosixFilePermission.OTHERS_EXECUTE
     }
     nio.file.attribute.PosixFilePermissions.asFileAttribute(javaPerms.asJava)

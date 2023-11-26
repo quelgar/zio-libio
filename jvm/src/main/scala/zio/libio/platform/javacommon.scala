@@ -7,7 +7,7 @@ import java.nio
 def makeByteBuffer: URIO[IOCtx, nio.ByteBuffer] =
   ZIO.serviceWithZIO[IOCtx] { ioCtx =>
     ZIO.succeed {
-      if (ioCtx.jvm.directBuffers) {
+      if ioCtx.jvm.directBuffers then {
         nio.ByteBuffer.allocateDirect(ioCtx.jvm.bufferSize)
       } else {
         nio.ByteBuffer.allocate(ioCtx.jvm.bufferSize)

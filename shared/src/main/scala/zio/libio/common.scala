@@ -26,7 +26,7 @@ final case class IOCtx(jvm: IOCtx.Jvm, native: IOCtx.Native) {
   def withNative(native: IOCtx.Native): IOCtx = copy(native = native)
 
   def use[R, E, A](workflow: ZIO[R & IOCtx, E, A]): ZIO[R, E, A] = {
-    if (internal.Platform.isJVM) {
+    if internal.Platform.isJVM then {
       val workflowWithCtx = workflow.provideSomeEnvironment[R](_.add(this))
       jvm.executor match {
         case ExecutorType.Blocking =>
@@ -36,7 +36,7 @@ final case class IOCtx(jvm: IOCtx.Jvm, native: IOCtx.Native) {
         case IOCtx.ExecutorType.Custom(executor) =>
           workflowWithCtx.onExecutor(executor)
       }
-    } else if (internal.Platform.isNative) {
+    } else if internal.Platform.isNative then {
       ???
     } else {
       ZIO.dieMessage("Unsupported platform")

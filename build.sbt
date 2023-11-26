@@ -10,6 +10,8 @@ import scala.scalanative.build._
 
 val zioVer = "2.0.19"
 
+val scalaUvVer = "0.1.0-SNAPSHOT"
+
 lazy val root = crossProject(JVMPlatform, NativePlatform)
   .crossType(CrossType.Full)
   .in(file("."))
@@ -26,5 +28,6 @@ lazy val root = crossProject(JVMPlatform, NativePlatform)
         .withMode(Mode.debug) // releaseFast
         .withGC(GC.immix) // commix
         .withTargetTriple("arm64-apple-macosx13.0.0")
-    }
+    },
+    libraryDependencies += "quelgar.github.com" %%% "scala-uv" % scalaUvVer
   )

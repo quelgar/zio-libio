@@ -38,7 +38,8 @@ final case class Path(absolute: Boolean, components: Chunk[Path.Component]) {
   def /(child: String): Path = copy(components = components :+ child)
 
   def /(child: Path): Path =
-    if (absolute) child else copy(components = components ++ child.components)
+    if absolute then child
+    else copy(components = components ++ child.components)
 
   def asDirectory: ZIO[IOCtx, IOFailure, Directory] =
     platform.Directory.open(this)
@@ -50,7 +51,7 @@ final case class Path(absolute: Boolean, components: Chunk[Path.Component]) {
     platform.FileSpiImplementation.exists(this)
 
   def asAbsolute: ZIO[IOCtx, IOFailure, Path] =
-    if (absolute) ZIO.succeed(this)
+    if absolute then ZIO.succeed(this)
     else platform.FileSpiImplementation.asAbsolute(this)
 
   def stringComponents: Chunk[String] = components.map(_.asString)

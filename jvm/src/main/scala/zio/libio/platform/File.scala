@@ -12,75 +12,91 @@ import java.io.IOException
 
 final class File(
     val path: Path,
-    fileChannel: nioc.FileChannel,
-    nioBuf: nio.ByteBuffer
+    fileChannel: nioc.FileChannel
 ) extends file.ReadWriteFile {
 
   def close: URIO[IOCtx, Unit] = ZIO.succeed(fileChannel.close())
 
   override def read: ZStream[IOCtx, IOFailure, Byte] =
-    ZStream
-      .repeatZIOChunkOption {
-        ZIO.attempt {
-          if fileChannel.read(nioBuf) < 0 then {
-            None
-          } else {
-            nioBuf.flip()
-            val chunk = JavaBuffers.unsafeCopyToChunk(nioBuf)
-            nioBuf.clear()
-            Some(chunk)
-          }
-        }.some
-      }
-      .refineOrDie(JavaErrors.refineToIOFailure)
+    ZStream.fromZIO(makeByteBuffer).flatMap { nioBuf =>
+      ZStream
+        .repeatZIOChunkOption {
+          ZIO.attempt {
+            if fileChannel.read(nioBuf) < 0 then {
+              None
+            } else {
+              nioBuf.flip()
+              val chunk = JavaBuffers.unsafeCopyToChunk(nioBuf)
+              nioBuf.clear()
+              Some(chunk)
+            }
+          }.some
+        }
+        .refineOrDie(JavaErrors.refineToIOFailure)
+    }
 
   override def readFrom(offset: Long): ZStream[IOCtx, IOFailure, Byte] = {
-    ZStream.repeatZIOChunkOption {
-      ZIO.attemptBlockingCancelable {
-        val bytesRead = fileChannel.read(nioBuf, offset)
-        if bytesRead == -1 then None
-        else {
-          nioBuf.flip()
-          val bytes = Array.ofDim[Byte](nioBuf.remaining())
-          nioBuf.get(bytes)
-          nioBuf.clear()
-          Some(Chunk.fromArray(bytes))
+    ZStream
+      .fromZIO(makeByteBuffer)
+      .flatMap { nioBuf =>
+        ZStream.repeatZIOChunkOption {
+          ZIO.attemptBlockingCancelable {
+            val bytesRead = fileChannel.read(nioBuf, offset)
+            if bytesRead == -1 then None
+            else {
+              nioBuf.flip()
+              val bytes = Array.ofDim[Byte](nioBuf.remaining())
+              nioBuf.get(bytes)
+              nioBuf.clear()
+              Some(Chunk.fromArray(bytes))
+            }
+          }(close).some
         }
-      }(close).some
-    }
-  }.refineOrDie(JavaErrors.refineToIOFailure)
+      }
+      .refineOrDie(JavaErrors.refineToIOFailure)
+  }
 
   override def write: ZSink[IOCtx, IOFailure, Byte, Byte, Long] = {
-    ZSink.foldLeftChunksZIO(0L) { (count, chunk: Chunk[Byte]) =>
-      ZIO.attemptBlockingCancelable {
-        nioBuf.put(chunk.toArray)
-        nioBuf.flip()
-        var c = count
-        while nioBuf.hasRemaining() do {
-          c += fileChannel.write(nioBuf).toLong
+    ZSink
+      .fromZIO(makeByteBuffer)
+      .flatMap { nioBuf =>
+        ZSink.foldLeftChunksZIO(0L) { (count, chunk: Chunk[Byte]) =>
+          ZIO.attemptBlockingCancelable {
+            nioBuf.put(chunk.toArray)
+            nioBuf.flip()
+            var c = count
+            while nioBuf.hasRemaining() do {
+              c += fileChannel.write(nioBuf).toLong
+            }
+            nioBuf.clear()
+            c
+          }(close)
         }
-        nioBuf.clear()
-        c
-      }(close)
-    }
-  }.refineOrDie(JavaErrors.refineToIOFailure)
+      }
+      .refineOrDie(JavaErrors.refineToIOFailure)
+  }
 
   override def writeAt(
       offset: Long
   ): ZSink[IOCtx, IOFailure, Byte, Byte, Long] = {
-    ZSink.foldLeftChunksZIO(0L) { (count, chunk: Chunk[Byte]) =>
-      ZIO.attemptBlockingCancelable {
-        nioBuf.put(chunk.toArray)
-        nioBuf.flip()
-        var c = 0L
-        while nioBuf.hasRemaining() do {
-          c += fileChannel.write(nioBuf, offset + c).toLong
+    ZSink
+      .fromZIO(makeByteBuffer)
+      .flatMap { nioBuf =>
+        ZSink.foldLeftChunksZIO(0L) { (count, chunk: Chunk[Byte]) =>
+          ZIO.attemptBlockingCancelable {
+            nioBuf.put(chunk.toArray)
+            nioBuf.flip()
+            var c = 0L
+            while nioBuf.hasRemaining() do {
+              c += fileChannel.write(nioBuf, offset + c).toLong
+            }
+            nioBuf.clear()
+            count + c
+          }(close)
         }
-        nioBuf.clear()
-        count + c
-      }(close)
-    }
-  }.refineOrDie(JavaErrors.refineToIOFailure)
+      }
+      .refineOrDie(JavaErrors.refineToIOFailure)
+  }
 
 }
 
@@ -90,18 +106,16 @@ object FileSpiImplementation extends file.FileSpi {
       path: file.Path,
       options: Set[nio.file.OpenOption]
   ): ZIO[Scope & IOCtx, IOFailure, File] = {
-    makeByteBuffer.flatMap { nioBuf =>
-      ZIO
-        .fromAutoCloseable {
-          ZIO
-            .attempt {
-              val javaPath = JavaPath.fromPath(path)
-              nioc.FileChannel.open(javaPath, options.asJava)
-            }
-            .refineOrDie(JavaErrors.refineToIOFailure)
-        }
-        .map(new File(path, _, nioBuf))
-    }
+    ZIO
+      .fromAutoCloseable {
+        ZIO
+          .attempt {
+            val javaPath = JavaPath.fromPath(path)
+            nioc.FileChannel.open(javaPath, options.asJava)
+          }
+          .refineOrDie(JavaErrors.refineToIOFailure)
+      }
+      .map(new File(path, _))
   }
 
   override def read(path: file.Path): ZIO[Scope & IOCtx, IOFailure, File] = {

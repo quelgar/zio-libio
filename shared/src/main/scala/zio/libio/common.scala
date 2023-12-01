@@ -9,7 +9,15 @@ enum IOFailure(cause: Option[Throwable] = None):
       cause: Option[Throwable] = None,
       message: Option[String] = None
   ) extends IOFailure(cause)
+  case WriteFailed(
+      cause: Option[Throwable] = None,
+      message: Option[String] = None
+  ) extends IOFailure(cause)
   case EndOfFile extends IOFailure(None)
+  case OpenFailed(
+      cause: Option[Throwable] = None,
+      message: Option[String] = None
+  ) extends IOFailure(cause)
   case GeneralFailure(cause: Option[Throwable] = None, message: String)
       extends IOFailure(cause)
 

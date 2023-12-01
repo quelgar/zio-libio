@@ -12,6 +12,12 @@ val zioVer = "2.0.19"
 
 val scalaUvVer = "0.1.0-SNAPSHOT"
 
+scalacOptions ++= Seq(
+  "-new-styntax",
+  "-no-indent",
+  "-java-output-version=21"
+)
+
 lazy val root = crossProject(JVMPlatform, NativePlatform)
   .crossType(CrossType.Full)
   .in(file("."))

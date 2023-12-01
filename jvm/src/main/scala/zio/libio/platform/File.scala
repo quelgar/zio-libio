@@ -88,7 +88,7 @@ final class File(
             nioBuf.flip()
             var c = 0L
             while nioBuf.hasRemaining() do {
-              c += fileChannel.write(nioBuf, offset + c).toLong
+              c += fileChannel.write(nioBuf, offset + count + c).toLong
             }
             nioBuf.clear()
             count + c

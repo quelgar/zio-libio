@@ -1,11 +1,14 @@
 package zio
-package libio.platform
+package libio
+package platform
 
 import scala.scalanative.unsafe.CInt
 import scala.scalanative.loop.EventLoop
 import zio.libio.IOFailure
 import scalauv.LibUv
 import scalauv.UvUtils
+import scala.scalanative.unsafe
+import unsafe.CString
 import scala.scalanative.unsafe.Zone
 import scala.scalanative.unsafe.Ptr
 import scala.scalanative.unsigned.*
@@ -18,7 +21,10 @@ private[platform] val uvLoop = EventLoop.loop
 private[platform] val UseCurrentOffset = -1L
 
 extension (builder: ChunkBuilder[Byte]) {
-  inline def appendNative(nativeBytes: Ptr[Byte], size: Int): builder.type = {
+  inline private[platform] def appendNative(
+      nativeBytes: Ptr[Byte],
+      size: Int
+  ): builder.type = {
     var pos = 0
     while pos < size do {
       builder += nativeBytes(pos)
@@ -27,18 +33,49 @@ extension (builder: ChunkBuilder[Byte]) {
     builder
   }
 
-  inline def appendNative(bufferandSize: BufferAndSize): builder.type = {
+  inline private[platform] def appendNative(
+      bufferandSize: BufferAndSize
+  ): builder.type = {
     appendNative(bufferandSize.buffer, bufferandSize.size)
   }
 
-  inline def appendIOVector(max: Int, ioVec: IOVector): builder.type = {
+  inline private[platform] def appendIOVector(
+      max: Int,
+      ioVec: IOVector
+  ): builder.type = {
     ioVec.foreachBufferMax(max)(appendNative(_))
     builder
   }
 
 }
 
-object UvZIO {
+extension (s: String) {
+
+  inline private[platform] def toScopedCString: ZIO[Scope, Nothing, CString] = {
+    UvZIO.scopedZone(unsafe.toCString(s)).orDie
+  }
+
+}
+
+extension (f: file.Path) {
+
+  inline private[platform] def asCString: ZIO[Scope, Nothing, CString] = {
+    f.asString.toScopedCString
+  }
+
+}
+
+private[platform] object UvZIO {
+
+  def attemptFsOp[E](
+      fsOp: LibUv.Req => CInt
+  )(handleError: String => E): IO[E, Int] =
+    ZIO.succeedBlocking(UvUtils.FsReq.use(fsOp)).flatMap {
+      case result if result < 0 =>
+        ZIO.fail(handleError(UvUtils.errorNameAndMessage(result)))
+      case result =>
+        ZIO.succeed(result)
+    }
 
   def attemptFsRead(fsOp: LibUv.Req => CInt): IO[IOFailure, Int] =
     ZIO.succeedBlocking(UvUtils.FsReq.use(fsOp)).flatMap {
@@ -54,15 +91,7 @@ object UvZIO {
     }
 
   def attemptFsWrite(fsOp: LibUv.Req => CInt): IO[IOFailure, Int] =
-    ZIO.succeedBlocking(UvUtils.FsReq.use(fsOp)).flatMap {
-      case result if result < 0 =>
-        ZIO.fail(
-          IOFailure
-            .ReadFailed(message = Some(UvUtils.errorNameAndMessage(result)))
-        )
-      case result =>
-        ZIO.succeed(result)
-    }
+    attemptFsOp(fsOp)(s => IOFailure.WriteFailed(message = Some(s)))
 
   def scopedZone[A](f: Zone ?=> A): ZIO[Scope, Throwable, A] = {
     ZIO
@@ -100,7 +129,7 @@ object UvZIO {
   inline def stackAllocateIOVectorForChunk(
       sizedBuffer: BufferAndSize,
       chunk: Chunk[Byte]
-  ): (IOVector, Chunk[Byte]) = {
+  )(using Unsafe): (IOVector, Chunk[Byte]) = {
     val length = scala.math.min(sizedBuffer.size, chunk.size)
     for i <- 0 until length do {
       sizedBuffer.buffer(i) = chunk(i)

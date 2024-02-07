@@ -15,9 +15,9 @@ final class File(
     fileChannel: nioc.FileChannel
 ) extends file.ReadWriteFile {
 
-  def close: URIO[IOCtx, Unit] = ZIO.succeed(fileChannel.close())
+  def close: UIO[Unit] = ZIO.succeed(fileChannel.close())
 
-  override def read: ZStream[IOCtx, IOFailure, Byte] =
+  override def read: ZStream[Any, IOFailure, Byte] =
     ZStream.fromZIO(makeByteBuffer).flatMap { nioBuf =>
       ZStream
         .repeatZIOChunkOption {
@@ -35,7 +35,7 @@ final class File(
         .refineOrDie(JavaErrors.refineToIOFailure)
     }
 
-  override def readFrom(offset: Long): ZStream[IOCtx, IOFailure, Byte] = {
+  override def readFrom(offset: Long): ZStream[Any, IOFailure, Byte] = {
     ZStream
       .fromZIO(makeByteBuffer)
       .flatMap { nioBuf =>
@@ -56,7 +56,7 @@ final class File(
       .refineOrDie(JavaErrors.refineToIOFailure)
   }
 
-  override def write: ZSink[IOCtx, IOFailure, Byte, Byte, Long] = {
+  override def write: ZSink[Any, IOFailure, Byte, Byte, Long] = {
     ZSink
       .fromZIO(makeByteBuffer)
       .flatMap { nioBuf =>
@@ -78,7 +78,7 @@ final class File(
 
   override def writeAt(
       offset: Long
-  ): ZSink[IOCtx, IOFailure, Byte, Byte, Long] = {
+  ): ZSink[Any, IOFailure, Byte, Byte, Long] = {
     ZSink
       .fromZIO(makeByteBuffer)
       .flatMap { nioBuf =>
@@ -105,7 +105,7 @@ object FileSpiImplementation extends file.FileSpi {
   private def open(
       path: file.Path,
       options: Set[nio.file.OpenOption]
-  ): ZIO[Scope & IOCtx, IOFailure, File] = {
+  ): ZIO[Scope, IOFailure, File] = {
     ZIO
       .fromAutoCloseable {
         ZIO
@@ -118,18 +118,18 @@ object FileSpiImplementation extends file.FileSpi {
       .map(new File(path, _))
   }
 
-  override def read(path: file.Path): ZIO[Scope & IOCtx, IOFailure, File] = {
+  override def read(path: file.Path): ZIO[Scope, IOFailure, File] = {
     open(path, Set(nio.file.StandardOpenOption.READ))
   }
 
-  override def write(path: file.Path): ZIO[Scope & IOCtx, IOFailure, File] = {
+  override def write(path: file.Path): ZIO[Scope, IOFailure, File] = {
     open(path, Set(nio.file.StandardOpenOption.WRITE))
   }
 
   override def createWrite(
       path: file.Path,
       permissions: PosixPermissions
-  ): ZIO[Scope & IOCtx, IOFailure, File] = {
+  ): ZIO[Scope, IOFailure, File] = {
     open(
       path,
       Set(
@@ -140,7 +140,7 @@ object FileSpiImplementation extends file.FileSpi {
     )
   }
 
-  override def readWrite(path: file.Path): ZIO[Scope & IOCtx, IOFailure, File] =
+  override def readWrite(path: file.Path): ZIO[Scope, IOFailure, File] =
     open(
       path,
       Set(
@@ -152,7 +152,7 @@ object FileSpiImplementation extends file.FileSpi {
   override def createReadWrite(
       path: file.Path,
       permissions: PosixPermissions
-  ): ZIO[Scope & IOCtx, IOFailure, File] = open(
+  ): ZIO[Scope, IOFailure, File] = open(
     path,
     Set(
       nio.file.StandardOpenOption.CREATE,
@@ -167,7 +167,7 @@ object FileSpiImplementation extends file.FileSpi {
       directory: Option[Path] = None,
       prefix: String = "",
       suffix: String = ""
-  ): ZIO[Scope & IOCtx, IOFailure, Path] = {
+  ): ZIO[Scope, IOFailure, Path] = {
     ZIO
       .attempt {
         val attr = JavaAttribs.fromPermissions(permissions)
@@ -191,12 +191,12 @@ object FileSpiImplementation extends file.FileSpi {
       }
   }
 
-  override def exists(path: Path): ZIO[IOCtx, IOFailure, Boolean] =
+  override def exists(path: Path): IO[IOFailure, Boolean] =
     ZIO
       .attempt(nio.file.Files.exists(JavaPath.fromPath(path)))
       .refineOrDie(JavaErrors.refineToIOFailure)
 
-  override def asAbsolute(path: Path): ZIO[IOCtx, IOFailure, Path] =
+  override def asAbsolute(path: Path): IO[IOFailure, Path] =
     ZIO
       .attempt {
         val javaPath = JavaPath.fromPath(path)

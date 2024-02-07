@@ -5,23 +5,19 @@ package platform
 import stream.*
 
 import scala.scalanative.*
-import scalauv.LibUv
-import scalauv.UvUtils
+import scalauv.*
 import scala.scalanative.unsafe.*
-import scalauv.IOVector
-import scalauv.BufferAndSize
 import scala.util.boundary
 import scalauv.FileOpenFlags
 import scalauv.CreateMode
 import scalauv.AccessCheckMode
 
-final class File(
-    fileHandle: LibUv.FileHandle
-) extends file.ReadWriteFile {
+final class File(fileHandle: FileHandle, loop: Loop)
+    extends file.ReadWriteFile {
 
-  def close: URIO[IOCtx, Unit] = ???
+  def close: UIO[Unit] = ???
 
-  override def read: ZStream[IOCtx, IOFailure, Byte] = {
+  override def read: ZStream[Any, IOFailure, Byte] = {
     ZStream
       .scoped(UvZIO.zoneAllocateIOVector)
       .flatMap { ioVector =>
@@ -29,7 +25,7 @@ final class File(
           UvZIO
             .attemptFsRead {
               LibUv.uv_fs_read(
-                uvLoop,
+                loop,
                 _,
                 fileHandle,
                 ioVector.nativeBuffers,
@@ -51,7 +47,7 @@ final class File(
       }
   }
 
-  override def readFrom(offset: Long): ZStream[IOCtx, IOFailure, Byte] = {
+  override def readFrom(offset: Long): ZStream[Any, IOFailure, Byte] = {
     ZStream
       .scoped(UvZIO.zoneAllocateIOVector)
       .flatMap { ioVector =>
@@ -59,7 +55,7 @@ final class File(
           UvZIO
             .attemptFsRead {
               LibUv.uv_fs_read(
-                uvLoop,
+                loop,
                 _,
                 fileHandle,
                 ioVector.nativeBuffers,
@@ -83,7 +79,7 @@ final class File(
 
   override def writeAt(
       offset: Long
-  ): ZSink[IOCtx, IOFailure, Byte, Byte, Long] = {
+  ): ZSink[Any, IOFailure, Byte, Byte, Long] = {
     ZSink.unwrapScoped {
       UvZIO.zoneAllocateBuffer.map { sizedBuf =>
         ZSink.foldLeftChunksZIO(0L) { (writeCount: Long, in: Chunk[Byte]) =>
@@ -94,18 +90,17 @@ final class File(
               while bytes.nonEmpty do {
                 val (ioVec, _) =
                   UvZIO.stackAllocateIOVectorForChunk(sizedBuf, bytes)
-                val result = UvUtils.FsReq
-                  .use(
-                    LibUv.uv_fs_write(
-                      uvLoop,
-                      _,
-                      fileHandle,
-                      ioVec.nativeBuffers,
-                      ioVec.nativeNumBuffers,
-                      offset + writeCount + count,
-                      null
-                    )
+                val result = FileReq.use(
+                  LibUv.uv_fs_write(
+                    loop,
+                    _,
+                    fileHandle,
+                    ioVec.nativeBuffers,
+                    ioVec.nativeNumBuffers,
+                    offset + writeCount + count,
+                    null
                   )
+                )
                 if result < 0 then {
                   boundary.break(None)
                 } else {
@@ -121,7 +116,7 @@ final class File(
     }
   }
 
-  override def write: ZSink[IOCtx, IOFailure, Byte, Byte, Long] = {
+  override def write: ZSink[Any, IOFailure, Byte, Byte, Long] = {
     ZSink.unwrapScoped {
       UvZIO.zoneAllocateBuffer.map { sizedBuf =>
         ZSink.foldLeftChunksZIO(0L) { (writeCount: Long, in: Chunk[Byte]) =>
@@ -133,10 +128,10 @@ final class File(
                 while bytes.nonEmpty do {
                   val (ioVec, _) =
                     UvZIO.stackAllocateIOVectorForChunk(sizedBuf, bytes)
-                  val result = UvUtils.FsReq
+                  val result = FileReq
                     .use(
                       LibUv.uv_fs_write(
-                        uvLoop,
+                        loop,
                         _,
                         fileHandle,
                         ioVec.nativeBuffers,
@@ -176,12 +171,13 @@ object FileSpiImplementation extends file.FileSpi {
       path: file.Path,
       flags: Int,
       createMode: Int = CreateMode.None
-  ): ZIO[Scope & IOCtx, IOFailure, File] = {
+  ): ZIO[Scope, IOFailure, File] = {
     for {
       filename <- path.asCString
+      ctx <- NativeContext.current
       result <- UvZIO.attemptFsOp { openReq =>
         LibUv.uv_fs_open(
-          uvLoop,
+          ctx.loop,
           openReq,
           filename,
           flags,
@@ -194,18 +190,18 @@ object FileSpiImplementation extends file.FileSpi {
     } yield file
   }
 
-  override def read(path: file.Path): ZIO[Scope & IOCtx, IOFailure, File] = {
+  override def read(path: file.Path): ZIO[Scope, IOFailure, File] = {
     open(path, FileOpenFlags.O_RDONLY)
   }
 
-  override def write(path: file.Path): ZIO[Scope & IOCtx, IOFailure, File] = {
+  override def write(path: file.Path): ZIO[Scope, IOFailure, File] = {
     open(path, FileOpenFlags.O_WRONLY)
   }
 
   override def createWrite(
       path: file.Path,
       permissions: file.PosixPermissions
-  ): ZIO[Scope & IOCtx, IOFailure, File] = {
+  ): ZIO[Scope, IOFailure, File] = {
     val createMode = ???
     open(
       path,
@@ -216,14 +212,14 @@ object FileSpiImplementation extends file.FileSpi {
 
   override def readWrite(
       path: file.Path
-  ): ZIO[Scope & IOCtx, IOFailure, File] = {
+  ): ZIO[Scope, IOFailure, File] = {
     open(path, FileOpenFlags.O_RDWR)
   }
 
   override def createReadWrite(
       path: file.Path,
       permissions: file.PosixPermissions
-  ): ZIO[Scope & IOCtx, IOFailure, File] = {
+  ): ZIO[Scope, IOFailure, File] = {
     val createMode = ???
     open(
       path,
@@ -237,15 +233,16 @@ object FileSpiImplementation extends file.FileSpi {
       directory: Option[file.Path] = None,
       prefix: String = "",
       suffix: String = ""
-  ): ZIO[Scope & IOCtx, IOFailure, file.Path] = ???
+  ): ZIO[Scope, IOFailure, file.Path] = ???
 
-  override def exists(path: file.Path): ZIO[IOCtx, IOFailure, Boolean] =
+  override def exists(path: file.Path): IO[IOFailure, Boolean] =
     ZIO.scoped {
       for {
         filename <- path.asCString
+        ctx <- NativeContext.current
         result <- UvZIO.attemptFsOp { req =>
           LibUv.uv_fs_access(
-            uvLoop,
+            ctx.loop,
             req,
             filename,
             AccessCheckMode.F_OK,
@@ -255,7 +252,7 @@ object FileSpiImplementation extends file.FileSpi {
       } yield result == 0
     }
 
-  override def asAbsolute(path: file.Path): ZIO[IOCtx, IOFailure, file.Path] =
+  override def asAbsolute(path: file.Path): IO[IOFailure, file.Path] =
     ???
 
 }

@@ -4,13 +4,13 @@ package platform
 
 import java.nio
 
-def makeByteBuffer: URIO[IOCtx, nio.ByteBuffer] =
-  ZIO.serviceWithZIO[IOCtx] { ioCtx =>
+def makeByteBuffer: UIO[nio.ByteBuffer] =
+  JvmContext.current.flatMap { ctx =>
     ZIO.succeed {
-      if ioCtx.jvm.directBuffers then {
-        nio.ByteBuffer.allocateDirect(ioCtx.jvm.bufferSize)
+      if ctx.directBuffers then {
+        nio.ByteBuffer.allocateDirect(ctx.bufferSize)
       } else {
-        nio.ByteBuffer.allocate(ioCtx.jvm.bufferSize)
+        nio.ByteBuffer.allocate(ctx.bufferSize)
       }
     }
   }

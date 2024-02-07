@@ -1,4 +1,7 @@
 target/
 /project/project
 sbt-launch.jar
-
+/.metals
+/.bsp
+/.vscode
+metals.sbt

@@ -8,9 +8,9 @@ logLevel := Level.Info
 // import to add Scala Native options
 import scala.scalanative.build._
 
-val zioVer = "2.0.19"
+val zioVer = "2.0.21"
 
-val scalaUvVer = "0.1.0-SNAPSHOT"
+val scalaUvVer = "0.0.2"
 
 scalacOptions ++= Seq(
   "-new-styntax",
@@ -35,5 +35,5 @@ lazy val root = crossProject(JVMPlatform, NativePlatform)
         .withGC(GC.immix) // commix
         .withTargetTriple("arm64-apple-macosx13.0.0")
     },
-    libraryDependencies += "quelgar.github.com" %%% "scala-uv" % scalaUvVer
+    libraryDependencies += "io.github.quelgar" %%% "scala-uv" % scalaUvVer
   )

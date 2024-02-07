@@ -7,6 +7,7 @@ import scala.scalanative.loop.EventLoop
 import zio.libio.IOFailure
 import scalauv.LibUv
 import scalauv.UvUtils
+import scala.scalanative.libc
 import scala.scalanative.unsafe
 import unsafe.CString
 import scala.scalanative.unsafe.Zone
@@ -67,28 +68,23 @@ extension (f: file.Path) {
 
 private[platform] object UvZIO {
 
+  def getErrno: UIO[CInt] = ZIO.succeed(libc.errno.errno)
+
+  def errorNameAndMessage: UIO[(CInt, String)] =
+    ZIO.succeed(UvUtils.errornoNameAndMessage())
+
   def attemptFsOp[E](
       fsOp: LibUv.Req => CInt
-  )(handleError: String => E): IO[E, Int] =
-    ZIO.succeedBlocking(UvUtils.FsReq.use(fsOp)).flatMap {
-      case result if result < 0 =>
-        ZIO.fail(handleError(UvUtils.errorNameAndMessage(result)))
-      case result =>
-        ZIO.succeed(result)
-    }
+  )(handleError: String => E): IO[E, Int] = {
+    ZIO.succeedBlocking(UvUtils.FsReq.use(fsOp)).handleNativeError
+  }
 
-  def attemptFsRead(fsOp: LibUv.Req => CInt): IO[IOFailure, Int] =
-    ZIO.succeedBlocking(UvUtils.FsReq.use(fsOp)).flatMap {
-      case 0 =>
-        ZIO.fail(IOFailure.EndOfFile)
-      case result if result < 0 =>
-        ZIO.fail(
-          IOFailure
-            .ReadFailed(message = Some(UvUtils.errorNameAndMessage(result)))
-        )
-      case result =>
-        ZIO.succeed(result)
-    }
+  def attemptFsRead(fsOp: LibUv.Req => CInt): IO[IOFailure, Int] = {
+    ZIO
+      .succeedBlocking(UvUtils.FsReq.use(fsOp))
+      .handleNativeError
+      .filterOrFail(_ > 0)(IOFailure.EndOfFile)
+  }
 
   def attemptFsWrite(fsOp: LibUv.Req => CInt): IO[IOFailure, Int] =
     attemptFsOp(fsOp)(s => IOFailure.WriteFailed(message = Some(s)))
@@ -141,4 +137,41 @@ private[platform] object UvZIO {
     )
   }
 
+}
+
+extension [R](workflow: ZIO[R, Nothing, CInt]) {
+
+  private[platform] def handleNativeError: ZIO[R, IOFailure, CInt] = {
+    import scalauv.Errno.*
+    workflow.flatMap { resultCode =>
+      if resultCode < 0 then {
+        UvZIO.getErrno.flatMap(errno => ZIO.fail(errnoToFailure(errno)))
+      } else {
+        ZIO.succeed(resultCode)
+      }
+    }
+  }
+
+}
+
+extension [R, A](workflow: ZIO[R, Nothing, Option[A]]) {
+
+  private[platform] def handleNativeError: ZIO[R, IOFailure, A] = {
+    import scalauv.Errno.*
+    workflow.someOrElseZIO(
+      UvZIO.getErrno.flatMap(errno => ZIO.fail(errnoToFailure(errno)))
+    )
+  }
+}
+
+private[platform] def errnoToFailure(errno: CInt): IOFailure = {
+  require(errno < 0)
+  import scalauv.Errno.*
+  val msg = UvUtils.errorNameAndMessage()
+  errno match {
+    case EPERM | EACCES | EROFS =>
+      IOFailure.NotPermitted(message = Some(msg))
+    case _ =>
+      IOFailure.Unknown(message = msg)
+  }
 }

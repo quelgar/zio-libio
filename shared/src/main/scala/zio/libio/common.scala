@@ -1,25 +1,40 @@
 package zio
 package libio
 
-enum IOFailure(cause: Option[Throwable] = None):
-  case FileNotFound(cause: Option[Throwable] = None) extends IOFailure(cause)
-  case NotAFile(cause: Option[Throwable] = None) extends IOFailure(cause)
-  case NotADirectory(cause: Option[Throwable] = None) extends IOFailure(cause)
-  case ReadFailed(
+enum IOFailure(cause: Option[Throwable] = None, message: Option[String] = None):
+  case FileNotFound(
       cause: Option[Throwable] = None,
       message: Option[String] = None
   ) extends IOFailure(cause)
-  case WriteFailed(
-      cause: Option[Throwable] = None,
-      message: Option[String] = None
-  ) extends IOFailure(cause)
-  case EndOfFile extends IOFailure(None)
-  case OpenFailed(
-      cause: Option[Throwable] = None,
-      message: Option[String] = None
-  ) extends IOFailure(cause)
-  case GeneralFailure(cause: Option[Throwable] = None, message: String)
+  case NotAFile(cause: Option[Throwable] = None, message: Option[String] = None)
       extends IOFailure(cause)
+  case NotADirectory(
+      cause: Option[Throwable] = None,
+      message: Option[String] = None
+  ) extends IOFailure(cause)
+  case IOError(
+      cause: Option[Throwable] = None,
+      message: String
+  ) extends IOFailure(cause, Some(message))
+  case NotPermitted(
+      cause: Option[Throwable] = None,
+      message: Option[String] = None
+  ) extends IOFailure(cause, message)
+  case EndOfFile extends IOFailure()
+  case IllegalInput(
+      cause: Option[Throwable] = None,
+      message: Option[String] = None
+  ) extends IOFailure(cause, message)
+  case OutOfMemory(
+      cause: Option[Throwable] = None,
+      message: Option[String] = None
+  ) extends IOFailure(cause, message)
+  case FileExists(
+      cause: Option[Throwable] = None,
+      message: Option[String] = None
+  ) extends IOFailure(cause, message)
+  case Unknown(cause: Option[Throwable] = None, message: String)
+      extends IOFailure(cause, Some(message))
 
 trait Instant extends Any {
 

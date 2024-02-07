@@ -32,12 +32,12 @@ object JavaBuffers {
 object JavaErrors {
 
   def refineToIOFailure: PartialFunction[Throwable, IOFailure] = {
-    case e: IOException => IOFailure.GeneralFailure(Some(e), e.getMessage())
-    case e: IOError     => IOFailure.GeneralFailure(Some(e), e.getMessage())
+    case e: IOException => IOFailure.IOError(Some(e), e.getMessage())
+    case e: IOError     => IOFailure.IOError(Some(e), e.getMessage())
   }
 
   val mapIOException: IOException => IOFailure = e =>
-    IOFailure.GeneralFailure(Some(e), e.getMessage())
+    IOFailure.IOError(Some(e), e.getMessage())
 
 }
 

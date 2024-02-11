@@ -5,6 +5,7 @@ import zio.*
 import zio.stream.*
 import zio.test.*
 import java.nio.charset.StandardCharsets
+import scala.language.implicitConversions
 
 object FileSpec extends ZIOSpecDefault {
 
@@ -18,7 +19,7 @@ object FileSpec extends ZIOSpecDefault {
   private val path =
     Path.relative("shared", "src", "test", "resources", "test.txt")
 
-  override def spec: Spec[TestEnvironment & Scope, Any] = suite("File")(
+  override def spec: Spec[TestEnvironment & Scope, Any] = suite("FileSpec")(
     test("deletes a temporary file when the scope ends") {
       {
         for {
@@ -50,6 +51,6 @@ object FileSpec extends ZIOSpecDefault {
         }
       } yield assertTrue(data == testData)
     }
-  ).usingIOCtx(IOCtx.Default)
+  )
 
 }

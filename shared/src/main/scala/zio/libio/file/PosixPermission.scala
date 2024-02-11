@@ -65,11 +65,12 @@ object PosixPermissions {
       sticky: Boolean = false,
       setGroupId: Boolean = false,
       setUserId: Boolean = false
-  ): PosixPermissions =
+  ): PosixPermissions = {
     val stickyMask = if sticky then 0x200 else 0
     val setGroupIdMask = if setGroupId then 0x400 else 0
     val setUserIdMask = if setUserId then 0x800 else 0
     other | (group << 3) | (user << 6) | stickyMask | setGroupIdMask | setUserIdMask
+  }
 
   def user(user: PosixPermission): PosixPermissions =
     PosixPermissions(user, PosixPermission.none, PosixPermission.none)

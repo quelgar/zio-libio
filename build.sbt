@@ -10,12 +10,18 @@ import scala.scalanative.build._
 
 val zioVer = "2.0.21"
 
-val scalaUvVer = "0.0.2"
+val scalaUvVer = "0.0.3-SNAPSHOT"
 
-scalacOptions ++= Seq(
-  "-new-styntax",
+ThisBuild / scalacOptions ++= Seq(
+  "-new-syntax",
   "-no-indent",
-  "-java-output-version=21"
+  "-java-output-version",
+  "21",
+  "-Wvalue-discard",
+  "-Wunused:all",
+  "-deprecation",
+  "-feature"
+  // "-Werror"
 )
 
 lazy val root = crossProject(JVMPlatform, NativePlatform)
@@ -35,5 +41,6 @@ lazy val root = crossProject(JVMPlatform, NativePlatform)
         .withGC(GC.immix) // commix
         .withTargetTriple("arm64-apple-macosx13.0.0")
     },
-    libraryDependencies += "io.github.quelgar" %%% "scala-uv" % scalaUvVer
+    libraryDependencies += "io.github.quelgar" %%% "scala-uv" % scalaUvVer,
+    libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.5.0"
   )

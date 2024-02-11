@@ -7,6 +7,7 @@ import file.given
 import java.nio
 import nio.file.attribute as attr
 import scala.jdk.CollectionConverters.*
+import scala.language.implicitConversions
 
 object JavaInteropSpec extends ZIOSpecDefault {
 

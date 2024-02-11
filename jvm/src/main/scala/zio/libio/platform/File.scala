@@ -8,7 +8,6 @@ import java.nio.{channels as nioc}
 import file.Path
 import file.PosixPermissions
 import scala.jdk.CollectionConverters.*
-import java.io.IOException
 
 final class File(
     val path: Path,

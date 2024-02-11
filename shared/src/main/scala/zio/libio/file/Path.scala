@@ -35,28 +35,28 @@ final case class Path(absolute: Boolean, components: Chunk[Path.Component]) {
       .fromChunk(components)
       .map(cs => copy(components = cs.dropRight(1)))
 
-  def /(child: String): Path = copy(components = components :+ child)
+  def /(child: String): Path = copy(components = components :+ child.p)
 
   def /(child: Path): Path =
     if absolute then child
     else copy(components = components ++ child.components)
 
-  def asDirectory: ZIO[IOCtx, IOFailure, Directory] =
+  def asDirectory: IO[IOFailure, Directory] =
     platform.Directory.open(this)
 
-  def loadStats: ZIO[IOCtx, IOFailure, FileStats] =
+  def loadStats: IO[IOFailure, FileStats] =
     platform.FileStats.load(this)
 
-  def exists: ZIO[IOCtx, IOFailure, Boolean] =
+  def exists: IO[IOFailure, Boolean] =
     platform.FileSpiImplementation.exists(this)
 
-  def asAbsolute: ZIO[IOCtx, IOFailure, Path] =
+  def asAbsolute: IO[IOFailure, Path] =
     if absolute then ZIO.succeed(this)
     else platform.FileSpiImplementation.asAbsolute(this)
 
   def stringComponents: Chunk[String] = components.map(_.asString)
 
-  def asString: String = {
+  override def toString: String = {
     val initial = if absolute then "/" else ""
     stringComponents.mkString(initial, java.io.File.separator, "")
   }
@@ -84,7 +84,7 @@ object Path {
 
   def currentDirectory: Path = Path(absolute = false, Chunk.empty)
 
-  def currentDirectoryAbsolute: ZIO[IOCtx, IOFailure, Path] =
+  def currentDirectoryAbsolute: IO[IOFailure, Path] =
     currentDirectory.asAbsolute
 
   def relative(first: Path.Component, rest: Path.Component*): Path =
@@ -93,7 +93,22 @@ object Path {
   def absolute(first: Path.Component, rest: Path.Component*): Path =
     Path(absolute = true, first +: Chunk.fromIterable(rest))
 
+  private val unixPathRegex = """/+""".r
+  private val windowsPathRegex = """\+""".r
+
+  def fromString(s: String): Path = {
+    val splitter =
+      if java.io.File.separator == "\\" then windowsPathRegex else unixPathRegex
+    val components = Chunk.fromArray(splitter.split(s)).map(_.p)
+    val isAbsolute = s.startsWith(java.io.File.separator)
+    val trimmedComponents =
+      if isAbsolute then components.drop(1) else components
+    Path(isAbsolute, trimmedComponents)
+  }
+
   val root: Path = Path(absolute = true, components = Chunk.empty)
+
+  val homeDirectory: Path = Path.fromString(sys.props("user.home"))
 
   object Root {
     def unapply(path: Path): Boolean = path.isRoot
@@ -103,8 +118,13 @@ object Path {
 
 val Up: Path.Component = Path.Component.Up
 
-given Conversion[String, Path.Component] with
-  def apply(s: String) = Path.Component.Down(s)
+given Conversion[String, Path.Component] = Path.Component.Down(_)
+
+extension (s: String) {
+
+  inline def p: Path.Component = Path.Component.Down(s)
+
+}
 
 trait Directory {
 

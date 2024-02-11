@@ -1,40 +1,86 @@
 package zio
 package libio
 
-enum IOFailure(cause: Option[Throwable] = None, message: Option[String] = None):
-  case FileNotFound(
-      cause: Option[Throwable] = None,
-      message: Option[String] = None
-  ) extends IOFailure(cause)
-  case NotAFile(cause: Option[Throwable] = None, message: Option[String] = None)
-      extends IOFailure(cause)
-  case NotADirectory(
-      cause: Option[Throwable] = None,
-      message: Option[String] = None
-  ) extends IOFailure(cause)
-  case IOError(
-      cause: Option[Throwable] = None,
-      message: String
-  ) extends IOFailure(cause, Some(message))
-  case NotPermitted(
-      cause: Option[Throwable] = None,
-      message: Option[String] = None
-  ) extends IOFailure(cause, message)
+val x: Option[String] = (??? : IOFailure.AddressInUse).message
+
+enum IOFailure(
+    val cause: Option[Throwable] = None,
+    val message: Option[String] = None
+) {
+  case AddressInUse(
+      c: Option[Throwable] = None,
+      m: Option[String] = None
+  ) extends IOFailure(c, m)
+  case AddressLookupFailed(
+      c: Option[Throwable] = None,
+      m: Option[String] = None
+  ) extends IOFailure(c, m)
+  case AddressNotAvailable(
+      c: Option[Throwable] = None,
+      m: Option[String] = None
+  ) extends IOFailure(c, m)
+  case AddressNotFound(
+      c: Option[Throwable] = None,
+      m: Option[String] = None
+  ) extends IOFailure(c, m)
+  case ConnectionAborted(
+      c: Option[Throwable] = None,
+      m: Option[String] = None
+  ) extends IOFailure(c, m)
+  case ConnectionRefused(
+      c: Option[Throwable] = None,
+      m: Option[String] = None
+  ) extends IOFailure(c, m)
+  case ConnectionReset(
+      c: Option[Throwable] = None,
+      m: Option[String] = None
+  ) extends IOFailure(c, m)
   case EndOfFile extends IOFailure()
-  case IllegalInput(
-      cause: Option[Throwable] = None,
-      message: Option[String] = None
-  ) extends IOFailure(cause, message)
-  case OutOfMemory(
-      cause: Option[Throwable] = None,
-      message: Option[String] = None
-  ) extends IOFailure(cause, message)
+  case DirectoryNotEmpty(
+      c: Option[Throwable] = None,
+      m: Option[String] = None
+  ) extends IOFailure(c, m)
   case FileExists(
-      cause: Option[Throwable] = None,
-      message: Option[String] = None
-  ) extends IOFailure(cause, message)
-  case Unknown(cause: Option[Throwable] = None, message: String)
-      extends IOFailure(cause, Some(message))
+      c: Option[Throwable] = None,
+      m: Option[String] = None
+  ) extends IOFailure(c, m)
+  case FileNotFound(
+      c: Option[Throwable] = None,
+      m: Option[String] = None
+  ) extends IOFailure(c, m)
+  case FileTooLarge(
+      c: Option[Throwable] = None,
+      m: Option[String] = None
+  ) extends IOFailure(c, m)
+  case HostUnreachable(
+      c: Option[Throwable] = None,
+      m: Option[String] = None
+  ) extends IOFailure(c, m)
+  case IOError(
+      c: Option[Throwable] = None,
+      m: String
+  ) extends IOFailure(c, Some(m))
+  case NotPermitted(
+      c: Option[Throwable] = None,
+      m: Option[String] = None
+  ) extends IOFailure(c, m)
+  case NoSpace(
+      c: Option[Throwable] = None,
+      m: Option[String] = None
+  ) extends IOFailure(c, m)
+  case ResourceBusy(
+      c: Option[Throwable] = None,
+      m: Option[String] = None
+  ) extends IOFailure(c, m)
+  case TextFileBusy(
+      c: Option[Throwable] = None,
+      m: Option[String] = None
+  ) extends IOFailure(c, m)
+  case TimedOut(
+      c: Option[Throwable] = None,
+      m: Option[String] = None
+  ) extends IOFailure(c, m)
+}
 
 trait Instant extends Any {
 
